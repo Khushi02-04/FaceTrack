@@ -1,0 +1,105 @@
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from sqlalchemy.orm import Session
+from db.session import get_db
+from db.repository.student_repository import StudentRepository
+from services.student_face_service import StudentFaceService
+from services.student_service import StudentService
+from db.schemas.student import (
+    ShowStudent,
+    StudentUpdateResponse,
+    StudentUpdateRequest,
+    StudentResponse,
+    StudentCreate
+    )
+from typing import List
+
+router = APIRouter()
+
+@router.post("/", response_model=StudentResponse)
+def create_student(
+    payload: StudentCreate,
+    db: Session = Depends(get_db),
+):
+    try:
+        student = StudentService.create_student(db, payload)
+        return student
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# Get student by ID
+@router.get("/{student_id}", response_model=StudentResponse)
+def get_student(student_id: int, db: Session = Depends(get_db)):
+    student = StudentService.get_student_by_id(db, student_id)
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    return student
+
+
+# Get all students
+@router.get("/", response_model=List[StudentResponse])
+def get_all_students(db: Session = Depends(get_db)):
+    return StudentService.get_all_students(db)
+
+
+# Delete student
+@router.delete("/{student_id}")
+def delete_student(student_id: int, db: Session = Depends(get_db)):
+    deleted = StudentService.delete_student(db, student_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    return {"message": "Student deleted successfully"}
+
+@router.post("/{student_id}/face")
+async def register_face(
+    student_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    repo = StudentRepository(db)
+    service = StudentFaceService(repo)
+
+    return await service.register_face(student_id, file)
+
+
+@router.post(
+    "/recognize",
+    response_model=StudentResponse
+)
+async def recognize_student(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    image_bytes = await file.read()
+
+    return await StudentService.recognize_student(
+        image_bytes=image_bytes,
+        db=db
+    )
+
+@router.put("/{student_id}", response_model=StudentUpdateResponse)
+def update_student(
+    student_id: int,
+    request: StudentUpdateRequest,
+    db: Session = Depends(get_db)
+):
+    student = StudentService.update_student(
+        db=db,
+        student_id=student_id,
+        data=request
+    )
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    return {
+        "id": student.id,
+        "message": "Student updated successfully"
+    }
