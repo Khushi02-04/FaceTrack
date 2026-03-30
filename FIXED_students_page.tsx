@@ -30,24 +30,6 @@ export default function StudentsPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  const getCameraErrorMessage = (error: unknown) => {
-    if (error instanceof DOMException) {
-      if (error.name === "NotAllowedError") {
-        return "Camera permission was denied. Please allow camera access in your browser settings and try again."
-      }
-
-      if (error.name === "NotFoundError") {
-        return "No camera was found on this device."
-      }
-
-      if (error.name === "NotReadableError") {
-        return "The camera is already in use by another application."
-      }
-    }
-
-    return "Unable to open camera. Please allow camera access."
-  }
-
   const {
     students,
     filteredStudents,
@@ -79,68 +61,31 @@ export default function StudentsPage() {
       setStreamError(null)
       return
     }
-
     setVideoReady(false)
     setStreamError(null)
-
-    if (!cameraStream) {
-      let isCancelled = false
-
-      const startCamera = async () => {
-        try {
-          if (!navigator.mediaDevices?.getUserMedia) {
-            const message = "Camera access is not supported in this browser."
-            if (!isCancelled) {
-              setStreamError(message)
-              setRecognizeError(message)
-            }
-            return
-          }
-
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-
-          if (isCancelled) {
-            stream.getTracks().forEach((track) => track.stop())
-            return
-          }
-
+    if (!cameraStream && isCameraOpen) {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then((stream) => {
           setCameraStream(stream)
-        } catch (error) {
-          if (isCancelled) return
-
-          console.error("Camera open failed", error)
-          const message = getCameraErrorMessage(error)
-          setStreamError(message)
-          setRecognizeError(message)
-        }
-      }
-
-      startCamera()
-
-      return () => {
-        isCancelled = true
-      }
+        })
+        .catch((error) => {
+          setStreamError("Unable to open camera. Please allow camera access.")
+          setRecognizeError("Unable to open camera. Please allow camera access.")
+        })
+      return
     }
-
     if (cameraStream && videoRef.current) {
       videoRef.current.srcObject = cameraStream
       videoRef.current.onloadedmetadata = () => {
         setVideoReady(true)
-        videoRef.current?.play().catch(() => {
+        videoRef.current?.play().catch((error) => {
           setStreamError("Video play failed")
         })
       }
-
-      videoRef.current.onloadeddata = () => {
-        setVideoReady(true)
-      }
     }
-
     return () => {
       if (videoRef.current) {
         videoRef.current.srcObject = null
-        videoRef.current.onloadedmetadata = null
-        videoRef.current.onloadeddata = null
       }
       if (cameraStream) {
         cameraStream.getTracks().forEach((track) => track.stop())
@@ -155,8 +100,15 @@ export default function StudentsPage() {
     setRecognizeResult(null)
     setRecognizeError(null)
     setCapturedImage(null)
-    setStreamError(null)
-    setIsCameraOpen(true)
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      setCameraStream(stream)
+      setIsCameraOpen(true)
+    } catch (error) {
+      console.error("Camera open failed", error)
+      setRecognizeError("Unable to open camera. Please allow camera access.")
+    }
   }
 
   const closeCamera = () => {
@@ -203,18 +155,14 @@ export default function StudentsPage() {
       const formData = new FormData()
       formData.append("file", blob, "face.jpg")
 
-      const response = await apiClient.post<{ id?: string; name?: string; email?: string }>(
-        "/api/v1/students/recognize",
-        formData
-      )
+      const response = await apiClient.post("/api/v1/students/recognize", formData)
 
-      if (response.data) {
-        const recognizedStudent = response.data
-        const studentName = recognizedStudent.name || recognizedStudent.email || "Student"
+      if (response && response.data) {
+        const studentName = response.data.name || response.data.email || "Student"
         setRecognizeResult(`✅ Successfully recognized: ${studentName}`)
-        if (recognizedStudent.id) {
+        if (response.data.id) {
           setTimeout(() => {
-            router.push(`/admin/students/${recognizedStudent.id}`)
+            router.push(`/admin/students/${response.data.id}`)
           }, 2000)
         }
       } else {
@@ -310,19 +258,7 @@ export default function StudentsPage() {
         <AddStudentDialog onAdd={handleAddStudent} />
       </div>
 
-      <Dialog
-        open={isCameraOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            if (!isRecognizing) {
-              closeCamera()
-            }
-            return
-          }
-
-          setIsCameraOpen(true)
-        }}
-      >
+      <Dialog open={isCameraOpen} onOpenChange={(open) => { if (!open && !isRecognizing) closeCamera(); setIsCameraOpen(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Recognize Student</DialogTitle>
@@ -398,9 +334,6 @@ export default function StudentsPage() {
           <StudentTable
             students={students}
             isLoading={isLoading}
-            onEdit={(student) => {
-              router.push(`/admin/students/${student.id}/edit`)
-            }}
             onView={(student) => {
               router.push(`/admin/students/${student.id}`)
             }}

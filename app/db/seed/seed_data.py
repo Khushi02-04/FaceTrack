@@ -22,6 +22,10 @@ class ERPSeeder:
         # -------------------------
         # 1️⃣ Tenant (College)
         # -------------------------
+        # Clear existing tenant to avoid UNIQUE constraint
+        self.db.query(Tenant).delete()
+        self.db.commit()
+
         tenant = Tenant(
             name="SNJB College of Engineering",
             domain="snjb.edu"

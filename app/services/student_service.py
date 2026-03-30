@@ -15,7 +15,7 @@ class StudentService:
             img_path=image,
             model_name="Facenet"
         )[0]["embedding"]
-
+        
         student, score = StudentRepository.find_by_embedding(
             db=db,
             embedding=embedding

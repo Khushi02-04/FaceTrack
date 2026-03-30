@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Depends
 from .v1 import (
-    route_student, 
+route_student, 
     route_user, 
     route_tenant, 
     route_department, 

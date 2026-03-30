@@ -3,6 +3,8 @@ import { MenuItem } from '@/types/common';
 export const APP_NAME = 'College ERP';
 export const APP_DESCRIPTION = 'Comprehensive Educational Resource Planning System with Face Recognition Attendance';
 
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
+
 export const DASHBOARD_MENU_ITEMS: MenuItem[] = [
   {
     id: 'dashboard',
@@ -155,7 +157,7 @@ export const MOCK_COLLEGE = {
 
 export const TOAST_DURATION = 3000;
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+// export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 export const ROUTES = {
   HOME: '/',

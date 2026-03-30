@@ -39,7 +39,7 @@ class StudentUpdateResponse(BaseModel):
 class StudentResponse(BaseModel):
     # Basic Info
     id: int
-    name: str
+    name: Optional[str] = None
     email: Optional[str] = None
     mobile: Optional[str] = None
     father_name: Optional[str] = None

@@ -15,11 +15,6 @@ from typing import List
 
 router = APIRouter()
 
-# Get all students - MOVED FIRST
-@router.get("/", response_model=List[StudentResponse])
-def get_all_students(db: Session = Depends(get_db)):
-    return StudentService.get_all_students(db)
-
 @router.post("/", response_model=StudentResponse)
 def create_student(
     payload: StudentCreate,
@@ -35,15 +30,9 @@ def create_student(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-# Get student by ID - SECOND
-@router.get("/{student_id}", response_model=StudentResponse)
-def get_student(student_id: int, db: Session = Depends(get_db)):
-    student = StudentService.get_student_by_id(db, student_id)
+# Get student by ID
+# Get all students\n@router.get("/", response_model=List[StudentResponse])\ndef get_all_students(db: Session = Depends(get_db)):\n    return StudentService.get_all_students(db)\n\n\n# Get student by ID\n@router.get("/{student_id}", response_model=StudentResponse)\ndef get_student(student_id: int, db: Session = Depends(get_db)):\n    student = StudentService.get_student_by_id(db, student_id)\n\n    if not student:\n        raise HTTPException(status_code=404, detail="Student not found")\n\n    return student
 
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-
-    return student
 
 # Delete student
 @router.delete("/{student_id}")
