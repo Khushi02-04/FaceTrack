@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowLeft, Edit, Loader2, Mail, Phone, MapPin, User, BookOpen } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ArrowLeft, Camera, Edit, Loader2, Mail, Phone, MapPin, User, BookOpen } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 
 interface StudentResponse {
@@ -20,12 +21,20 @@ interface StudentResponse {
   class_id?: number | null
   tenant_id?: number | null
   is_face_registered?: boolean
+  department?: string | null
+  year_of_study?: string | null
   address_line?: string | null
   address_line1?: string | null
   city?: string | null
   state?: string | null
   pincode?: string | null
   father_mobile?: string | null
+}
+
+interface FaceRegistrationResponse {
+  message: string
+  student_id: number
+  is_face_registered: boolean
 }
 
 const statusColors: Record<string, 'default' | 'secondary'> = {
@@ -41,31 +50,213 @@ export default function StudentDetailsPage() {
   const [student, setStudent] = useState<StudentResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [videoReady, setVideoReady] = useState(false)
+  const [streamError, setStreamError] = useState<string | null>(null)
+  const [faceError, setFaceError] = useState<string | null>(null)
+  const [faceSuccess, setFaceSuccess] = useState<string | null>(null)
+  const [isCapturing, setIsCapturing] = useState(false)
+  const [isRegisteringFace, setIsRegisteringFace] = useState(false)
 
-  useEffect(() => {
-    const fetchStudent = async () => {
-      if (!studentId) {
-        setError('Student ID is missing.')
-        setIsLoading(false)
-        return
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  const getCameraErrorMessage = (cameraError: unknown) => {
+    if (cameraError instanceof DOMException) {
+      if (cameraError.name === 'NotAllowedError') {
+        return 'Camera permission was denied. Please allow camera access in your browser settings and try again.'
       }
 
-      setIsLoading(true)
-      setError(null)
-
-      const response = await apiClient.get<StudentResponse>(`/students/${studentId}`)
-
-      if (response.success && response.data) {
-        setStudent(response.data)
-      } else {
-        setError(response.error || 'Failed to load student details.')
+      if (cameraError.name === 'NotFoundError') {
+        return 'No camera was found on this device.'
       }
 
-      setIsLoading(false)
+      if (cameraError.name === 'NotReadableError') {
+        return 'The camera is already in use by another application.'
+      }
     }
 
-    fetchStudent()
+    return 'Unable to open camera. Please allow camera access.'
+  }
+
+  const fetchStudent = useCallback(async () => {
+    if (!studentId) {
+      setError('Student ID is missing.')
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    const response = await apiClient.get<StudentResponse>(`/students/${studentId}`)
+
+    if (response.success && response.data) {
+      setStudent(response.data)
+    } else {
+      setError(response.error || 'Failed to load student details.')
+    }
+
+    setIsLoading(false)
   }, [studentId])
+
+  useEffect(() => {
+    fetchStudent()
+  }, [fetchStudent])
+
+  useEffect(() => {
+    if (!isCameraOpen) {
+      if (videoRef.current) {
+        videoRef.current.srcObject = null
+      }
+      setVideoReady(false)
+      setStreamError(null)
+      return
+    }
+
+    setVideoReady(false)
+    setStreamError(null)
+
+    if (!cameraStream) {
+      let isCancelled = false
+
+      const startCamera = async () => {
+        try {
+          if (!navigator.mediaDevices?.getUserMedia) {
+            if (!isCancelled) {
+              setStreamError('Camera access is not supported in this browser.')
+            }
+            return
+          }
+
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+
+          if (isCancelled) {
+            stream.getTracks().forEach((track) => track.stop())
+            return
+          }
+
+          setCameraStream(stream)
+        } catch (cameraError) {
+          if (isCancelled) return
+          setStreamError(getCameraErrorMessage(cameraError))
+        }
+      }
+
+      startCamera()
+
+      return () => {
+        isCancelled = true
+      }
+    }
+
+    if (cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream
+      videoRef.current.onloadedmetadata = () => {
+        setVideoReady(true)
+        videoRef.current?.play().catch(() => {
+          setStreamError('Video play failed')
+        })
+      }
+      videoRef.current.onloadeddata = () => {
+        setVideoReady(true)
+      }
+    }
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = null
+        videoRef.current.onloadedmetadata = null
+        videoRef.current.onloadeddata = null
+      }
+
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop())
+        setCameraStream(null)
+      }
+
+      setVideoReady(false)
+      setStreamError(null)
+    }
+  }, [cameraStream, isCameraOpen])
+
+  const openCamera = () => {
+    setCapturedImage(null)
+    setFaceError(null)
+    setFaceSuccess(null)
+    setStreamError(null)
+    setIsCameraOpen(true)
+  }
+
+  const closeCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop())
+      setCameraStream(null)
+    }
+
+    setIsCameraOpen(false)
+    setCapturedImage(null)
+    setVideoReady(false)
+  }
+
+  const handleCapture = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current || !videoReady) return
+
+    setIsCapturing(true)
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    const context = canvas.getContext('2d')
+
+    if (!context) {
+      setIsCapturing(false)
+      return
+    }
+
+    const width = video.videoWidth || 640
+    const height = video.videoHeight || 480
+    canvas.width = width
+    canvas.height = height
+    context.drawImage(video, 0, 0, width, height)
+    setCapturedImage(canvas.toDataURL('image/jpeg'))
+    setIsCapturing(false)
+  }, [videoReady])
+
+  const handleRegisterFace = async () => {
+    if (!capturedImage || !studentId) {
+      setFaceError('Capture an image first.')
+      return
+    }
+
+    setIsRegisteringFace(true)
+    setFaceError(null)
+    setFaceSuccess(null)
+
+    try {
+      const blob = await (await fetch(capturedImage)).blob()
+      const formData = new FormData()
+      formData.append('file', blob, 'face.jpg')
+
+      const response = await apiClient.post<FaceRegistrationResponse>(
+        `/students/${studentId}/face`,
+        formData
+      )
+
+      if (response.success && response.data) {
+        setFaceSuccess(response.data.message || 'Face registered successfully.')
+        await fetchStudent()
+        closeCamera()
+      } else {
+        setFaceError(response.error || 'Failed to register face.')
+      }
+    } catch (registerError) {
+      console.error('Face registration error', registerError)
+      setFaceError('Failed to register face.')
+    } finally {
+      setIsRegisteringFace(false)
+    }
+  }
 
   const fullName = student?.name || 'Student'
   const studentStatus = student?.is_face_registered ? 'Active' : 'Inactive'
@@ -87,6 +278,12 @@ export default function StudentDetailsPage() {
             <ArrowLeft className="mr-2 size-4" />
             Back
           </Button>
+          {student && (
+            <Button variant="outline" onClick={openCamera}>
+              <Camera className="mr-2 size-4" />
+              {student.is_face_registered ? 'Update Face' : 'Register Face'}
+            </Button>
+          )}
           {studentId && (
             <Button onClick={() => router.push(`/admin/students/${studentId}/edit`)}>
               <Edit className="mr-2 size-4" />
@@ -99,6 +296,18 @@ export default function StudentDetailsPage() {
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {faceSuccess && (
+        <Alert>
+          <AlertDescription>{faceSuccess}</AlertDescription>
+        </Alert>
+      )}
+
+      {faceError && (
+        <Alert variant="destructive">
+          <AlertDescription>{faceError}</AlertDescription>
         </Alert>
       )}
 
@@ -137,12 +346,12 @@ export default function StudentDetailsPage() {
                   <p className="font-medium">{fullName}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Class ID</p>
-                  <p className="font-medium">{student.class_id ?? 'N/A'}</p>
+                  <p className="text-muted-foreground">Department</p>
+                  <p className="font-medium">{student.department || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Tenant ID</p>
-                  <p className="font-medium">{student.tenant_id ?? 'N/A'}</p>
+                  <p className="text-muted-foreground">Year of Study</p>
+                  <p className="font-medium">{student.year_of_study || 'N/A'}</p>
                 </div>
               </CardContent>
             </Card>
@@ -214,6 +423,89 @@ export default function StudentDetailsPage() {
           </div>
         </>
       ) : null}
+
+      <Dialog
+        open={isCameraOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            if (!isRegisteringFace) {
+              closeCamera()
+            }
+            return
+          }
+
+          setIsCameraOpen(true)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Register Student Face</DialogTitle>
+            <DialogDescription>
+              Capture the student&apos;s face and save it to this profile for recognition.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="relative flex min-h-[18rem] items-center justify-center rounded-lg bg-slate-950/10 p-2">
+                {!streamError && !videoReady && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded bg-black/50">
+                    <p className="text-sm text-white">Loading camera...</p>
+                  </div>
+                )}
+                {streamError && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded bg-red-900/80">
+                    <p className="px-4 text-center text-sm text-white">{streamError}</p>
+                  </div>
+                )}
+                <video
+                  ref={videoRef}
+                  className={`h-72 w-full rounded object-cover ${videoReady && !capturedImage ? '' : 'invisible'}`}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{ background: '#222' }}
+                />
+                {capturedImage && (
+                  <img
+                    src={capturedImage}
+                    alt="Captured frame"
+                    className="absolute inset-0 z-20 h-72 w-full rounded object-cover"
+                  />
+                )}
+              </div>
+
+              <div className="flex min-h-[18rem] items-center justify-center rounded-lg bg-slate-950/10 p-2">
+                {capturedImage ? (
+                  <img
+                    src={capturedImage}
+                    alt="Captured preview"
+                    className="h-72 w-full rounded object-cover"
+                  />
+                ) : (
+                  <div className="flex h-72 items-center justify-center text-muted-foreground">
+                    No capture yet
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button onClick={handleCapture} disabled={isCapturing || isRegisteringFace || !videoReady}>
+                {isCapturing ? 'Capturing...' : 'Capture'}
+              </Button>
+              <Button onClick={handleRegisterFace} disabled={isRegisteringFace || !capturedImage}>
+                {isRegisteringFace ? 'Saving Face...' : 'Register Face'}
+              </Button>
+              <Button variant="outline" onClick={closeCamera} disabled={isRegisteringFace}>
+                Close
+              </Button>
+            </div>
+          </div>
+
+          <canvas ref={canvasRef} className="hidden" />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,60 +1,255 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { CheckSquare2, Plus, Smile } from 'lucide-react';
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { apiClient } from '@/lib/api'
+import { CheckSquare2, RefreshCw, Search, Smile } from 'lucide-react'
+
+interface AttendanceRecord {
+  attendance_id: number
+  student_id: number
+  status: 'present' | 'absent'
+  marked_at: string | null
+  student: {
+    id: number
+    name: string
+    roll_no?: string | null
+    department?: string | null
+    year_of_study?: string | null
+  }
+}
+
+interface TodayAttendanceResponse {
+  date: string
+  present_count: number
+  absent_count: number
+  total_count: number
+  records: AttendanceRecord[]
+}
+
+const statusVariants: Record<'present' | 'absent', 'default' | 'destructive'> = {
+  present: 'default',
+  absent: 'destructive',
+}
 
 export default function AttendancePage() {
+  const router = useRouter()
+  const [data, setData] = useState<TodayAttendanceResponse | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'present' | 'absent'>('all')
+
+  const fetchAttendance = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    const response = await apiClient.get<TodayAttendanceResponse>('/attendance/today')
+
+    if (response.success && response.data) {
+      setData(response.data)
+    } else {
+      setError(response.error || 'Failed to load attendance data.')
+      setData(null)
+    }
+
+    setIsLoading(false)
+  }
+
+  useEffect(() => {
+    fetchAttendance()
+  }, [])
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'attendance:lastRecognition') {
+        fetchAttendance()
+      }
+    }
+
+    const handleFocus = () => {
+      fetchAttendance()
+    }
+
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchAttendance()
+    }, 15000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
+  const filteredRecords =
+    data?.records.filter((record) => {
+      if (statusFilter !== 'all' && record.status !== statusFilter) {
+        return false
+      }
+
+      if (!searchQuery.trim()) {
+        return true
+      }
+
+      const query = searchQuery.toLowerCase()
+      return (
+        record.student.name.toLowerCase().includes(query) ||
+        (record.student.roll_no || '').toLowerCase().includes(query)
+      )
+    }) || []
+
   return (
-    <div className="space-y-6 max-w-7xl">
-      <div>
-        <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
-          <CheckSquare2 className="size-8" />
-          Attendance Management
-        </h1>
-        <p className="text-lg text-muted-foreground mt-2">
-          Track and manage student attendance with face recognition
-        </p>
+    <div className="max-w-7xl space-y-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-3 text-4xl font-bold tracking-tight">
+            <CheckSquare2 className="size-8" />
+            Attendance Management
+          </h1>
+          <p className="mt-2 text-lg text-muted-foreground">
+            Track today&apos;s present and absent records from face recognition.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={fetchAttendance} disabled={isLoading}>
+            <RefreshCw className={`mr-2 size-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={() => router.push('/admin/students')}>
+            <Smile className="mr-2 size-4" />
+            Open Face Recognition
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Button size="lg" className="h-24">
-          <Smile className="size-6 mr-2" />
-          <div>
-            <div className="font-semibold">Face Recognition</div>
-            <div className="text-xs opacity-90">Mark using camera</div>
-          </div>
-        </Button>
-        <Button size="lg" variant="outline" className="h-24">
-          <CheckSquare2 className="size-6 mr-2" />
-          <div>
-            <div className="font-semibold">Manual Entry</div>
-            <div className="text-xs opacity-90">Enter manually</div>
-          </div>
-        </Button>
-        <Button size="lg" variant="outline" className="h-24">
-          <Plus className="size-6 mr-2" />
-          <div>
-            <div className="font-semibold">Reports</div>
-            <div className="text-xs opacity-90">View analytics</div>
-          </div>
-        </Button>
+        <Card>
+          <CardHeader>
+            <CardDescription>Date</CardDescription>
+            <CardTitle>{data?.date || '-'}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>Present</CardDescription>
+            <CardTitle className="text-green-600">{data?.present_count ?? 0}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>Absent</CardDescription>
+            <CardTitle className="text-red-600">{data?.absent_count ?? 0}</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <div className="flex flex-col gap-3 md:flex-row md:items-end">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by student name or roll number..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="w-full md:w-56">
+          <Select
+            value={statusFilter}
+            onValueChange={(value: 'all' | 'present' | 'absent') => setStatusFilter(value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="present">Present Only</SelectItem>
+              <SelectItem value="absent">Absent Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Today's Attendance</CardTitle>
+          <CardTitle>Today&apos;s Attendance</CardTitle>
           <CardDescription>
-            92% attendance rate (2,614 of 2,845 students)
+            {data
+              ? `Showing ${filteredRecords.length} of ${data.total_count} attendance records for today.`
+              : 'Attendance records will appear here.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-12">
-            <CheckSquare2 className="size-12 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">
-              Attendance tracking module - UI to be implemented
-            </p>
-          </div>
+          {error ? (
+            <div className="py-6 text-sm text-red-600">{error}</div>
+          ) : isLoading ? (
+            <div className="py-6 text-sm text-muted-foreground">Loading attendance...</div>
+          ) : !data || filteredRecords.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              No attendance records matched your current filters.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Roll Number</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Year of Study</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Marked At</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRecords.map((record) => (
+                  <TableRow key={record.attendance_id}>
+                    <TableCell className="font-medium">{record.student.name}</TableCell>
+                    <TableCell>{record.student.roll_no || 'N/A'}</TableCell>
+                    <TableCell>{record.student.department || 'N/A'}</TableCell>
+                    <TableCell>{record.student.year_of_study || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariants[record.status]}>
+                        {record.status === 'present' ? 'Present' : 'Absent'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {record.marked_at ? new Date(record.marked_at).toLocaleString() : 'N/A'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

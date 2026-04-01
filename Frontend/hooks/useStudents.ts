@@ -40,12 +40,27 @@ interface StudentApiResponse {
   sibling_details: unknown
   aadhaar_number: string
   university_prn: string
-  documents: unknown[]
+  documents: Array<Record<string, unknown>>
 }
 
 const toOptionalString = (value?: string | null) => {
   const trimmed = value?.trim()
   return trimmed ? trimmed : undefined
+}
+
+const getStudentMeta = (documents?: Array<Record<string, unknown>>) => {
+  const metaDocument = documents?.find((document) => document?.type === "student_meta")
+
+  return {
+    department:
+      typeof metaDocument?.department === "string" && metaDocument.department.trim()
+        ? metaDocument.department
+        : undefined,
+    yearOfStudy:
+      typeof metaDocument?.year_of_study === "string" && metaDocument.year_of_study.trim()
+        ? metaDocument.year_of_study
+        : undefined,
+  }
 }
 
 const mapApiStudentToStudent = (apiStudent: StudentApiResponse): Student => {
@@ -75,6 +90,8 @@ const mapApiStudentToStudent = (apiStudent: StudentApiResponse): Student => {
     5: 4,
   }
 
+  const meta = getStudentMeta(apiStudent.documents)
+
   return {
     id: String(apiStudent.id),
     rollNumber: apiStudent.roll_no,
@@ -88,7 +105,8 @@ const mapApiStudentToStudent = (apiStudent: StudentApiResponse): Student => {
     city: apiStudent.city || "",
     state: apiStudent.state || "",
     postalCode: apiStudent.pincode || "",
-    department: departmentMap[apiStudent.class_id] || "Unknown",
+    department: meta.department || departmentMap[apiStudent.class_id] || "Unknown",
+    yearOfStudy: meta.yearOfStudy || "1st Year",
     semester: semesterMap[apiStudent.class_id] || 1,
     admissionDate,
     fatherName: apiStudent.father_name || "",
@@ -199,7 +217,13 @@ export function useStudents(initialFilters?: StudentFilters) {
           emergency_contacts: studentData.parentPhone?.trim()
             ? [{ name: studentData.fatherName?.trim() || "Parent", mobile: studentData.parentPhone.trim() }]
             : [],
-          documents: [],
+          documents: [
+            {
+              type: "student_meta",
+              department: studentData.department,
+              year_of_study: studentData.yearOfStudy,
+            },
+          ],
           profile_photo: undefined,
         }
 

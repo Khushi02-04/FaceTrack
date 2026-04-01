@@ -63,6 +63,7 @@ export interface Student {
   state: string;
   postalCode: string;
   department: string;
+  yearOfStudy: string;
   semester: number;
   admissionDate: string;
   fatherName: string;

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Depends
 from .v1 import (
 route_student, 
+    route_attendance,
     route_user, 
     route_tenant, 
     route_department, 
@@ -16,6 +17,7 @@ route_student,
 router = APIRouter()
 
 router.include_router(prefix = "/students", router = route_student.router, tags = ['Student'])
+router.include_router(prefix = "/attendance", router = route_attendance.router, tags = ['Attendance'])
 router.include_router(prefix = "/tenant", router = route_tenant.router, tags = ['Tenant'])
 router.include_router(prefix = "/departments", router = route_department.router, tags = ['Department'])
 router.include_router(prefix = "/class-sections", router = route_class_section.router, tags = ['Class Sections'])

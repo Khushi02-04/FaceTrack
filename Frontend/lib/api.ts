@@ -4,6 +4,10 @@ import { ApiResponse } from '@/types/common';
 
 function getApiErrorMessage(error: unknown): string {
   if (error instanceof AxiosError) {
+    if (!error.response) {
+      return 'Network Error: unable to reach the backend API. Make sure the FastAPI server is running on http://localhost:8000.'
+    }
+
     const responseData = error.response?.data as
       | { detail?: string; message?: string }
       | string
@@ -72,7 +76,9 @@ constructor(baseUrl: string = API_BASE_URL || 'http://localhost:8000/api/v1') {
     body: unknown
   ): Promise<ApiResponse<T>> {
     try {
-      const response = await this.axiosInstance.post<T>(endpoint, body);
+      const response = await this.axiosInstance.post<T>(endpoint, body, {
+        headers: body instanceof FormData ? { 'Content-Type': undefined } : undefined,
+      });
       return {
         success: true,
         data: response.data,

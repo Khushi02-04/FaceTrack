@@ -59,7 +59,7 @@ export default function StudentsPage() {
   } = useStudents()
 
   const handleAddStudent = async (studentData: any) => {
-    await addStudent(studentData)
+    return await addStudent(studentData)
   }
 
   const handleDeleteStudent = async (id: string) => {
@@ -203,22 +203,49 @@ export default function StudentsPage() {
       const formData = new FormData()
       formData.append("file", blob, "face.jpg")
 
-      const response = await apiClient.post<{ id?: string; name?: string; email?: string }>(
-        "/api/v1/students/recognize",
+      const response = await apiClient.post<{
+        id?: string
+        name?: string
+        email?: string
+        roll_no?: string
+        department?: string
+        year_of_study?: string
+      }>(
+        "/students/recognize",
         formData
       )
 
       if (response.data) {
         const recognizedStudent = response.data
         const studentName = recognizedStudent.name || recognizedStudent.email || "Student"
-        setRecognizeResult(`✅ Successfully recognized: ${studentName}`)
+        const detailParts = [
+          `Name: ${studentName}`,
+          recognizedStudent.roll_no ? `Roll No: ${recognizedStudent.roll_no}` : null,
+          recognizedStudent.department ? `Department: ${recognizedStudent.department}` : null,
+          recognizedStudent.year_of_study ? `Year: ${recognizedStudent.year_of_study}` : null,
+        ].filter(Boolean)
+
+        setRecognizeResult(`Successfully recognized\n${detailParts.join("\n")}`)
+
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          const speech = new SpeechSynthesisUtterance(
+            `${studentName}. Roll number ${recognizedStudent.roll_no || "not available"}.`
+          )
+          window.speechSynthesis.cancel()
+          window.speechSynthesis.speak(speech)
+        }
+
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("attendance:lastRecognition", String(Date.now()))
+        }
+
         if (recognizedStudent.id) {
           setTimeout(() => {
             router.push(`/admin/students/${recognizedStudent.id}`)
           }, 2000)
         }
       } else {
-        setRecognizeError("No recognition result returned")
+        setRecognizeError(response.error || "No recognition result returned")
       }
     } catch (error) {
       console.error("Recognize API error", error)
@@ -376,7 +403,7 @@ export default function StudentsPage() {
             </div>
 
             {recognizeResult && (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700">{recognizeResult}</div>
+              <div className="whitespace-pre-line rounded-lg border border-green-200 bg-green-50 p-3 text-green-700">{recognizeResult}</div>
             )}
             {recognizeError && (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">{recognizeError}</div>

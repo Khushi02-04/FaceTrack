@@ -78,11 +78,15 @@ async def recognize_student(
     image_bytes = await file.read()
     try:
         student = await StudentService.recognize_student(image_bytes, db)
-        if isinstance(student, dict) and student.get("message") == "Student not found":
-            raise HTTPException(status_code=404, detail="Student not found")
         return student
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail=str(e) or "Internal Server Error")
     
 
 @router.put("/{student_id}", response_model=StudentUpdateResponse)
