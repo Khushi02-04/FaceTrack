@@ -4,8 +4,8 @@ import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/lib/providers'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const _geist = Geist({ subsets: ['latin'] })
+const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'College ERP - Educational Resource Planning System',
@@ -37,10 +37,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="font-sans antialiased">
-        <Providers>
-          {children}
-        </Providers>
+      <body className={`${_geist.className} ${_geistMono.className} font-sans antialiased`}>
+        <Providers>{children}</Providers>
         <Analytics />
       </body>
     </html>

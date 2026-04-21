@@ -1,83 +1,135 @@
-import { API_BASE_URL } from './constants';
-import { ApiResponse } from '@/types/common';
+import axios, { AxiosError, AxiosInstance } from 'axios'
+import { ApiResponse } from '@/types/common'
+import { API_BASE_URL } from './constants'
 
-export class ApiClient {
-  private baseUrl: string;
+function getApiErrorMessage(error: unknown): string {
+  if (error instanceof AxiosError) {
+    if (!error.response) {
+      return 'Network Error: unable to reach the backend API. Make sure the FastAPI server is running on http://localhost:8000.'
+    }
 
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
-  }
+    const responseData = error.response.data as
+      | { detail?: string; message?: string }
+      | string
+      | undefined
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
+    if (typeof responseData === 'string' && responseData.trim()) {
+      return responseData
+    }
 
-    const defaultHeaders: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    const config: RequestInit = {
-      ...options,
-      headers: {
-        ...defaultHeaders,
-        ...options.headers,
-      },
-    };
-
-    try {
-      const response = await fetch(url, config);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    if (responseData && typeof responseData === 'object') {
+      if (typeof responseData.detail === 'string' && responseData.detail.trim()) {
+        return responseData.detail
       }
 
-      const data = await response.json();
-      return {
-        success: true,
-        data,
-      };
-    } catch (error) {
-      console.error(`API Error [${endpoint}]:`, error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'An error occurred',
-      };
+      if (typeof responseData.message === 'string' && responseData.message.trim()) {
+        return responseData.message
+      }
     }
+
+    return error.message
+  }
+
+  return 'An error occurred'
+}
+
+function logHandledApiMessage(endpoint: string, message: string, error: unknown) {
+  if (typeof window === 'undefined') return
+
+  if (error instanceof AxiosError && error.response) {
+    console.warn(`API Warning [${endpoint}]:`, message)
+    return
+  }
+
+  console.error(`API Error [${endpoint}]:`, message)
+}
+
+export class ApiClient {
+  private axiosInstance: AxiosInstance
+
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.axiosInstance = axios.create({
+      baseURL: baseUrl,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    this.axiosInstance.interceptors.response.use(
+      (response) => response,
+      (error: AxiosError) => Promise.reject(error)
+    )
   }
 
   public async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'GET',
-    });
+    try {
+      const response = await this.axiosInstance.get<T>(endpoint)
+      return {
+        success: true,
+        data: response.data,
+      }
+    } catch (error) {
+      const message = getApiErrorMessage(error)
+      logHandledApiMessage(endpoint, message, error)
+      return {
+        success: false,
+        error: message,
+      }
+    }
   }
 
-  public async post<T>(
-    endpoint: string,
-    body: unknown
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+  public async post<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    try {
+      const response = await this.axiosInstance.post<T>(endpoint, body, {
+        headers: body instanceof FormData ? { 'Content-Type': undefined } : undefined,
+      })
+      return {
+        success: true,
+        data: response.data,
+      }
+    } catch (error) {
+      const message = getApiErrorMessage(error)
+      logHandledApiMessage(endpoint, message, error)
+      return {
+        success: false,
+        error: message,
+      }
+    }
   }
 
-  public async put<T>(
-    endpoint: string,
-    body: unknown
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      body: JSON.stringify(body),
-    });
+  public async put<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    try {
+      const response = await this.axiosInstance.put<T>(endpoint, body)
+      return {
+        success: true,
+        data: response.data,
+      }
+    } catch (error) {
+      const message = getApiErrorMessage(error)
+      logHandledApiMessage(endpoint, message, error)
+      return {
+        success: false,
+        error: message,
+      }
+    }
   }
 
   public async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'DELETE',
-    });
+    try {
+      const response = await this.axiosInstance.delete<T>(endpoint)
+      return {
+        success: true,
+        data: response.data,
+      }
+    } catch (error) {
+      const message = getApiErrorMessage(error)
+      logHandledApiMessage(endpoint, message, error)
+      return {
+        success: false,
+        error: message,
+      }
+    }
   }
 }
 
-export const apiClient = new ApiClient();
+export const apiClient = new ApiClient()

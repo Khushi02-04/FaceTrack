@@ -1,7 +1,8 @@
-import { MenuItem } from '@/types/common';
+import { MenuItem } from '@/types/common'
 
-export const APP_NAME = 'College ERP';
-export const APP_DESCRIPTION = 'Comprehensive Educational Resource Planning System with Face Recognition Attendance';
+export const APP_NAME = 'College ERP'
+export const APP_DESCRIPTION = 'Comprehensive Educational Resource Planning System with Face Recognition Attendance'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1'
 
 export const DASHBOARD_MENU_ITEMS: MenuItem[] = [
   {
@@ -24,30 +25,10 @@ export const DASHBOARD_MENU_ITEMS: MenuItem[] = [
     path: '/admin/teachers',
   },
   {
-    id: 'academics',
-    label: 'Academics',
-    icon: 'GraduationCap',
-    path: '/admin/academics',
-    children: [
-      {
-        id: 'courses',
-        label: 'Courses',
-        icon: 'Book',
-        path: '/admin/academics/courses',
-      },
-      {
-        id: 'classes',
-        label: 'Classes',
-        icon: 'Layers',
-        path: '/admin/academics/classes',
-      },
-      {
-        id: 'subjects',
-        label: 'Subjects',
-        icon: 'BookMarked',
-        path: '/admin/academics/subjects',
-      },
-    ],
+    id: 'subjects',
+    label: 'Subjects',
+    icon: 'BookMarked',
+    path: '/admin/subjects',
   },
   {
     id: 'timetable',
@@ -69,13 +50,7 @@ export const DASHBOARD_MENU_ITEMS: MenuItem[] = [
         path: '/admin/attendance/face-recognition',
       },
       {
-        id: 'manual-entry',
-        label: 'Manual Entry',
-        icon: 'ClipboardList',
-        path: '/admin/attendance/manual-entry',
-      },
-      {
-        id: 'reports',
+        id: 'attendance-reports',
         label: 'Attendance Reports',
         icon: 'BarChart3',
         path: '/admin/attendance/reports',
@@ -87,24 +62,6 @@ export const DASHBOARD_MENU_ITEMS: MenuItem[] = [
     label: 'Analytics',
     icon: 'TrendingUp',
     path: '/admin/analytics',
-  },
-  {
-    id: 'reports',
-    label: 'Reports',
-    icon: 'FileText',
-    path: '/admin/reports',
-  },
-  {
-    id: 'documents',
-    label: 'Documents',
-    icon: 'Folder',
-    path: '/admin/documents',
-  },
-  {
-    id: 'notifications',
-    label: 'Notifications',
-    icon: 'Bell',
-    path: '/admin/notifications',
   },
   {
     id: 'settings',
@@ -138,7 +95,7 @@ export const DASHBOARD_MENU_ITEMS: MenuItem[] = [
       },
     ],
   },
-];
+]
 
 export const MOCK_COLLEGE = {
   id: 'college-001',
@@ -151,11 +108,9 @@ export const MOCK_COLLEGE = {
   state: 'ST',
   country: 'Country',
   postalCode: '12345',
-};
+}
 
-export const TOAST_DURATION = 3000;
-
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+export const TOAST_DURATION = 3000
 
 export const ROUTES = {
   HOME: '/',
@@ -166,4 +121,4 @@ export const ROUTES = {
   TEACHERS: '/dashboard/teachers',
   ATTENDANCE: '/dashboard/attendance',
   SETTINGS: '/dashboard/settings',
-} as const;
+} as const

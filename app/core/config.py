@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Optional
 import os
 # from dotenv import load_dotenv
@@ -7,9 +8,10 @@ import os
 
 
 class Settings():
+    _app_dir = Path(__file__).resolve().parents[1]
     APP_NAME:str = "CRMKitty Backend"
     APP_VERSION:str = "V.0.0.1"
-    SQLALCHEMY_DATABASE_URL:str = "sqlite:///./test.db"
+    SQLALCHEMY_DATABASE_URL:str = f"sqlite:///{(_app_dir / 'test.db').as_posix()}"
     APP_DESCRIPTION:str = '''
                             This is CRMKitty API backend, Running with FastAPIs and uvicorn, Sqlite
                             '''

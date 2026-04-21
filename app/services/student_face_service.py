@@ -17,8 +17,13 @@ class StudentFaceService:
 
         image_bytes = await file.read()
         image_np = bytes_to_image(image_bytes)
-
-        embedding = generate_face_embedding(image_np)
+        try:
+            embedding = generate_face_embedding(image_np)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="No clear face was detected. Please capture a clear, front-facing image."
+            ) from exc
 
         updated_student = self.repo.update_face_embedding(student, embedding)
 
@@ -27,3 +32,4 @@ class StudentFaceService:
             "student_id": updated_student.id,
             "is_face_registered": updated_student.is_face_registered
         }
+

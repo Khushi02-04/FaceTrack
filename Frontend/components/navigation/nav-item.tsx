@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as Icons from 'lucide-react';
+import { Folder, type LucideIcon } from 'lucide-react';
 import { MenuItem } from '@/types/common';
 import { useSidebar } from '@/contexts/sidebar-context';
 import { cn } from '@/lib/utils';
@@ -18,14 +19,24 @@ export function NavItem({ item, level = 0 }: NavItemProps) {
   const { isOpen } = useSidebar();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const isActive = item.path ? pathname === item.path : false;
-  const hasChildren = item.children && item.children.length > 0;
+  const isActive = item.path
+    ? item.path === '/admin'
+      ? pathname === item.path
+      : pathname === item.path || pathname.startsWith(`${item.path}/`)
+    : false;
+  const hasChildren = !!item.children?.length;
 
-  // Get the icon component
-  const IconComponent =
-    Icons[item.icon as keyof typeof Icons] || Icons.Folder;
+  const candidateIcon = Icons[item.icon as keyof typeof Icons];
+  const IconComponent: LucideIcon =
+    typeof candidateIcon === 'function' ? (candidateIcon as LucideIcon) : Folder;
 
   const padding = level * 16;
+
+  useEffect(() => {
+    if (hasChildren && isActive) {
+      setIsExpanded(true);
+    }
+  }, [hasChildren, isActive]);
 
   if (hasChildren) {
     return (
@@ -55,7 +66,7 @@ export function NavItem({ item, level = 0 }: NavItemProps) {
         </button>
         {isExpanded && isOpen && (
           <div className="space-y-1">
-            {item.children.map((child) => (
+            {(item.children ?? []).map((child) => (
               <NavItem key={child.id} item={child} level={level + 1} />
             ))}
           </div>

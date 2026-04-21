@@ -1,6 +1,8 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { GraduationCap, Plus, Search } from 'lucide-react';
+import Link from 'next/link'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { subjectClassMap } from '@/lib/admin-demo-data'
+import { GraduationCap, LayoutList } from 'lucide-react'
 
 export default function AcademicsPage() {
   return (
@@ -8,44 +10,44 @@ export default function AcademicsPage() {
       <div>
         <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
           <GraduationCap className="size-8" />
-          Academics Management
+          Academics
         </h1>
         <p className="text-lg text-muted-foreground mt-2">
-          Manage courses, classes, and subjects
+          Subject list by class, kept in sync with the teacher and timetable modules.
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search by course, class, or subject..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background"
-          />
-        </div>
-        <Button>
-          <Plus className="size-4 mr-2" />
-          Add New
-        </Button>
-      </div>
-
       <Card>
-        <CardHeader>
-          <CardTitle>Academics Structure</CardTitle>
-          <CardDescription>
-            Courses: 12 | Classes: 48 | Subjects: 156
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-12">
-            <GraduationCap className="size-12 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">
-              Academics management module - UI to be implemented
-            </p>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle>Subjects by Class</CardTitle>
+            <CardDescription>
+              Only the class-wise subject mapping is shown here, as requested.
+            </CardDescription>
           </div>
+          <Button asChild variant="outline">
+            <Link href="/admin/timetable">
+              <LayoutList className="mr-2 size-4" />
+              Open Timetable
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {subjectClassMap.map((item) => (
+            <div key={item.className} className="rounded-2xl border p-5">
+              <p className="text-sm text-muted-foreground">{item.department} Department</p>
+              <h2 className="mt-1 text-xl font-semibold">{item.className}</h2>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {item.subjects.map((subject) => (
+                  <span key={subject} className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                    {subject}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

@@ -1,27 +1,108 @@
+from datetime import time
+from pathlib import Path
+import pickle
+
 from sqlalchemy.orm import Session
-from db.models.subject import Subject
-from db.models.class_section import ClassSection
+
 from db.models.attendence import Attendance
+from db.models.class_section import ClassSection
 from db.models.class_subject import ClassSubject
 from db.models.department import Department
 from db.models.lecture import Lecture
 from db.models.student import Student
+from db.models.subject import Subject
 from db.models.teacher import Teacher
 from db.models.tenant import Tenant
 from db.models.time_table import Timetable
-
-from datetime import time
 from .base_seed import Seeder
+
 
 class ERPSeeder:
     def __init__(self, db: Session):
         self.db = db
 
-    def seed(self):
+    def _dataset_path(self) -> Path:
+        return Path(__file__).resolve().parents[2] / "students.pkl"
 
+    def _load_dataset_students(self):
+        dataset_path = self._dataset_path()
+        if not dataset_path.exists():
+            return []
+
+        try:
+            with dataset_path.open("rb") as dataset_file:
+                dataset = pickle.load(dataset_file)
+        except Exception as exc:
+            print(f"Warning: could not read dataset from {dataset_path}: {exc}")
+            return []
+
+        if not isinstance(dataset, list):
+            print(f"Warning: expected a list in {dataset_path}, got {type(dataset).__name__}")
+            return []
+
+        students = []
+        for index, item in enumerate(dataset, start=1):
+            if not isinstance(item, dict):
+                continue
+
+            name = str(item.get("name") or f"Dataset Student {index}").strip()
+            roll = str(item.get("roll") or f"DS{index:03d}").strip()
+            embedding = item.get("embedding")
+            has_embedding = isinstance(embedding, list) and len(embedding) > 0
+
+            students.append(
+                {
+                    "name": name,
+                    "email": f"{roll.lower()}@dataset.local",
+                    "mobile": f"900000{index:04d}",
+                    "roll_no": roll,
+                    "university_prn": f"DATASET{index:04d}",
+                    "aadhaar_number": f"{123400000000 + index}",
+                    "address_line1": "Imported from dataset",
+                    "address_line2": "",
+                    "city": "Nashik",
+                    "state": "Maharashtra",
+                    "pincode": "422001",
+                    "country": "India",
+                    "tenth_school": "Imported Dataset School",
+                    "tenth_percentage": 75.0,
+                    "tenth_board": "State",
+                    "tenth_year": 2020,
+                    "twelfth_school": "Imported Dataset College",
+                    "twelfth_percentage": 78.0,
+                    "twelfth_board": "State",
+                    "twelfth_year": 2022,
+                    "father_name": "Dataset Parent",
+                    "father_mobile": f"910000{index:04d}",
+                    "father_occupation": "Unknown",
+                    "mother_name": "Dataset Parent",
+                    "mother_mobile": f"920000{index:04d}",
+                    "mother_occupation": "Unknown",
+                    "sibling_info": [],
+                    "emergency_contacts": [],
+                    "documents": [
+                        {
+                            "type": "student_meta",
+                            "department": "Computer Engineering",
+                            "year_of_study": "1st Year",
+                            "source": "students.pkl",
+                        }
+                    ],
+                    "profile_photo": None,
+                    "face_embedding": embedding if has_embedding else None,
+                    "is_face_registered": has_embedding,
+                }
+            )
+
+        return students
+
+    def seed(self):
         # -------------------------
-        # 1️⃣ Tenant (College)
+        # 1 Tenant (College)
         # -------------------------
+        self.db.query(Tenant).delete()
+        self.db.commit()
+
         tenant = Tenant(
             name="SNJB College of Engineering",
             domain="snjb.edu"
@@ -31,7 +112,7 @@ class ERPSeeder:
         self.db.refresh(tenant)
 
         # -------------------------
-        # 2️⃣ Departments
+        # 2 Departments
         # -------------------------
         cse = Department(
             name="Computer Engineering",
@@ -49,7 +130,7 @@ class ERPSeeder:
         self.db.refresh(it)
 
         # -------------------------
-        # 3️⃣ Class Sections
+        # 3 Class Sections
         # -------------------------
         fy_cse = ClassSection(
             name="FY CSE A",
@@ -71,7 +152,7 @@ class ERPSeeder:
         self.db.refresh(sy_cse)
 
         # -------------------------
-        # 4️⃣ Teachers
+        # 4 Teachers
         # -------------------------
         teacher1 = Teacher(
             name="Dr. Patil",
@@ -93,7 +174,7 @@ class ERPSeeder:
         self.db.refresh(teacher2)
 
         # -------------------------
-        # 5️⃣ Subjects
+        # 5 Subjects
         # -------------------------
         python = Subject(
             name="Python Programming",
@@ -115,7 +196,7 @@ class ERPSeeder:
         self.db.refresh(ds)
 
         # -------------------------
-        # 6️⃣ Assign Subjects to Class (Auto Assignment)
+        # 6 Assign Subjects to Class
         # -------------------------
         fy_python = ClassSubject(
             class_id=fy_cse.id,
@@ -133,13 +214,13 @@ class ERPSeeder:
         self.db.commit()
 
         # -------------------------
-        # 7️⃣ Timetable (Recurring Schedule)
+        # 7 Timetable
         # -------------------------
         timetable1 = Timetable(
             class_id=fy_cse.id,
             subject_id=python.id,
             teacher_id=teacher1.id,
-            day_of_week=0,  # Monday
+            day_of_week=0,
             start_time=time(10, 0),
             end_time=time(11, 0),
             tenant_id=tenant.id
@@ -149,7 +230,7 @@ class ERPSeeder:
             class_id=sy_cse.id,
             subject_id=ds.id,
             teacher_id=teacher2.id,
-            day_of_week=1,  # Tuesday
+            day_of_week=1,
             start_time=time(11, 0),
             end_time=time(12, 0),
             tenant_id=tenant.id
@@ -161,12 +242,10 @@ class ERPSeeder:
         # -------------------------
         # 8 Students
         # -------------------------
-        
-        # Get first class (example: FY CSE A)
         class_section = self.db.query(ClassSection).first()
 
         if not class_section:
-            print("❌ No class found. Run ERPSeeder first.")
+            print("No class found. Run ERPSeeder first.")
             return
 
         students_data = [
@@ -177,44 +256,37 @@ class ERPSeeder:
                 "roll_no": "FY001",
                 "university_prn": "PRN001",
                 "aadhaar_number": "123412341234",
-
                 "address_line1": "Gandhi Nagar",
                 "address_line2": "Near Bus Stand",
                 "city": "Nashik",
                 "state": "Maharashtra",
                 "pincode": "422001",
                 "country": "India",
-
                 "tenth_school": "ABC High School",
                 "tenth_percentage": 88.5,
                 "tenth_board": "State",
                 "tenth_year": 2020,
-
                 "twelfth_school": "XYZ Junior College",
                 "twelfth_percentage": 82.3,
                 "twelfth_board": "State",
                 "twelfth_year": 2022,
-
                 "father_name": "Mahesh Patil",
                 "father_mobile": "9876000001",
                 "father_occupation": "Farmer",
-
                 "mother_name": "Sunita Patil",
                 "mother_mobile": "9876000002",
                 "mother_occupation": "Housewife",
-
                 "sibling_info": [
                     {"name": "Rohit", "age": 14, "education": "9th"}
                 ],
-
                 "emergency_contacts": [
                     {"name": "Uncle", "mobile": "9999999999"}
                 ],
-
                 "documents": [],
                 "profile_photo": None,
+                "face_embedding": None,
+                "is_face_registered": False,
             },
-
             {
                 "name": "Amit Sharma",
                 "email": "amit.sharma@student.edu",
@@ -222,87 +294,75 @@ class ERPSeeder:
                 "roll_no": "FY002",
                 "university_prn": "PRN002",
                 "aadhaar_number": "123412341235",
-
                 "address_line1": "Shivaji Nagar",
                 "address_line2": "",
                 "city": "Pune",
                 "state": "Maharashtra",
                 "pincode": "411001",
                 "country": "India",
-
                 "tenth_school": "Modern School",
                 "tenth_percentage": 90.0,
                 "tenth_board": "CBSE",
                 "tenth_year": 2020,
-
                 "twelfth_school": "Modern Junior College",
                 "twelfth_percentage": 85.4,
                 "twelfth_board": "CBSE",
                 "twelfth_year": 2022,
-
                 "father_name": "Rakesh Sharma",
                 "father_mobile": "9876000003",
                 "father_occupation": "Business",
-
                 "mother_name": "Neeta Sharma",
                 "mother_mobile": "9876000004",
                 "mother_occupation": "Teacher",
-
                 "sibling_info": [],
                 "emergency_contacts": [],
                 "documents": [],
                 "profile_photo": None,
+                "face_embedding": None,
+                "is_face_registered": False,
             },
         ]
+
+        dataset_students = self._load_dataset_students()
+        all_students = students_data + dataset_students
         students = []
 
-        for data in students_data:
+        for data in all_students:
             student = Student(
                 name=data["name"],
                 email=data["email"],
                 mobile=data["mobile"],
                 roll_no=data["roll_no"],
-
                 university_prn=data["university_prn"],
                 aadhaar_number=data["aadhaar_number"],
-
                 address_line1=data["address_line1"],
                 address_line2=data["address_line2"],
                 city=data["city"],
                 state=data["state"],
                 pincode=data["pincode"],
                 country=data["country"],
-
                 tenth_school=data["tenth_school"],
                 tenth_percentage=data["tenth_percentage"],
                 tenth_board=data["tenth_board"],
                 tenth_year=data["tenth_year"],
-
                 twelfth_school=data["twelfth_school"],
                 twelfth_percentage=data["twelfth_percentage"],
                 twelfth_board=data["twelfth_board"],
                 twelfth_year=data["twelfth_year"],
-
                 father_name=data["father_name"],
                 father_mobile=data["father_mobile"],
                 father_occupation=data["father_occupation"],
-
                 mother_name=data["mother_name"],
                 mother_mobile=data["mother_mobile"],
                 mother_occupation=data["mother_occupation"],
-
                 sibling_info=data.get("sibling_info"),
                 emergency_contacts=data.get("emergency_contacts"),
                 documents=data.get("documents"),
-
                 profile_photo=data.get("profile_photo"),
-
                 class_id=class_section.id,
                 tenant_id=class_section.tenant_id,
-
-                # Face empty for now
-                is_face_registered=False,
-                face_embedding=None,
+                is_face_registered=data.get("is_face_registered", False),
+                face_embedding=data.get("face_embedding"),
             )
 
             students.append(student)
@@ -310,5 +370,4 @@ class ERPSeeder:
         self.db.add_all(students)
         self.db.commit()
 
-
-        print("✅ ERP SaaS Seed Data Inserted Successfully!")
+        print(f"ERP SaaS seed data inserted successfully with {len(dataset_students)} dataset student(s).")

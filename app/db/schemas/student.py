@@ -39,7 +39,7 @@ class StudentUpdateResponse(BaseModel):
 class StudentResponse(BaseModel):
     # Basic Info
     id: int
-    name: str
+    name: Optional[str] = None
     email: Optional[str] = None
     mobile: Optional[str] = None
     father_name: Optional[str] = None
@@ -50,9 +50,12 @@ class StudentResponse(BaseModel):
     class_id: Optional[int] = None
     tenant_id: Optional[int] = None
     is_face_registered: bool
+    department: Optional[str] = None
+    year_of_study: Optional[str] = None
 
     # Address Info
     address_line: Optional[str] = None
+    address_line1: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     pincode: Optional[str] = None
@@ -147,3 +150,5 @@ class StudentCreate(BaseModel):
     documents: Optional[List[Dict]] = None
 
     profile_photo: Optional[str] = None
+
+

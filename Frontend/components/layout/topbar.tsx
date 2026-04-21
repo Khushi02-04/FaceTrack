@@ -55,7 +55,12 @@ export function Topbar() {
       {/* Right Section - Actions */}
       <div className="flex items-center gap-2">
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          onClick={() => router.push('/admin/notifications')}
+        >
           <Bell className="size-5" />
           <span className="absolute top-1 right-1 size-2 rounded-full bg-destructive" />
         </Button>
@@ -100,11 +105,11 @@ export function Topbar() {
                 </p>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/admin/settings')}>
                 <User className="size-4 mr-2" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/admin/settings')}>
                 <Settings className="size-4 mr-2" />
                 <span>Settings</span>
               </DropdownMenuItem>

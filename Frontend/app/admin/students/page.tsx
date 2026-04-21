@@ -1,150 +1,219 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Users, Search, Filter } from 'lucide-react'
-import { AddStudentDialog } from '@/components/students/add-student-dialog'
-import { StudentTable } from '@/components/students/student-table'
-import { StudentDetailModal } from '@/components/students/student-detail-modal'
-import { useStudents } from '@/hooks/useStudents'
-import type { Student } from '@/types/common'
+import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { getAllStudents, getStudentStats, subscribeToStudentChanges, type DemoStudent } from '@/lib/admin-demo-data'
+import { Camera, Eye, Filter, MoreHorizontal, Pencil, Plus, Search, SquareChartGantt, Trash2, Users } from 'lucide-react'
+
+const statusClasses: Record<string, string> = {
+  Active: 'bg-zinc-900 text-white hover:bg-zinc-900',
+  Inactive: 'bg-amber-50 text-amber-700 hover:bg-amber-50',
+  Suspended: 'bg-red-500 text-white hover:bg-red-500',
+}
+
+const faceClasses: Record<string, string> = {
+  Uploaded: 'bg-emerald-600 text-white hover:bg-emerald-600',
+  Pending: 'bg-amber-50 text-amber-700 hover:bg-amber-50',
+  'Not Uploaded': 'bg-slate-100 text-slate-700 hover:bg-slate-100',
+}
 
 export default function StudentsPage() {
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [showDetailModal, setShowDetailModal] = useState(false)
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
+  const [students, setStudents] = useState<DemoStudent[]>([])
 
-  const {
-    students,
-    filteredStudents,
-    totalCount,
-    addStudent,
-    deleteStudent,
-  } = useStudents()
+  useEffect(() => {
+    const syncStudents = () => setStudents(getAllStudents())
+    syncStudents()
+    return subscribeToStudentChanges(syncStudents)
+  }, [])
 
-  const handleAddStudent = async (studentData: any) => {
-    await addStudent(studentData)
-  }
+  const studentStats = useMemo(() => getStudentStats(students), [students])
 
-  const handleDeleteStudent = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
-      await deleteStudent(id)
-      if (selectedStudent?.id === id) {
-        setShowDetailModal(false)
-        setSelectedStudent(null)
-      }
-    }
-  }
+  const filteredStudents = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim()
+    if (!query) return students
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query)
-  }
+    return students.filter((student) =>
+      [student.rollNumber, student.name, student.className, student.contact, student.email]
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    )
+  }, [searchQuery, students])
 
-  const activeStudents = filteredStudents.filter(s => s.status === 'Active').length
-  const inactiveStudents = filteredStudents.filter(s => s.status === 'Inactive').length
-  const suspendedStudents = filteredStudents.filter(s => s.status === 'Suspended').length
+  const statCards = [
+    { label: 'Total Students', value: studentStats.total, valueClass: '' },
+    { label: 'Face Uploaded', value: studentStats.faceUploaded, valueClass: 'text-emerald-600' },
+    { label: 'Face Pending', value: studentStats.facePending, valueClass: 'text-amber-500' },
+    { label: 'Suspended', value: studentStats.suspended, valueClass: 'text-red-500' },
+  ]
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="max-w-7xl space-y-6">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
+        <h1 className="flex items-center gap-3 text-4xl font-bold tracking-tight">
           <Users className="size-8" />
           Students Management
         </h1>
-        <p className="text-lg text-muted-foreground mt-2">
-          Manage all student records and information
+        <p className="mt-2 text-lg text-muted-foreground">
+          Manage student records, face data status, and attendance-linked actions from one place.
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Total Students</p>
-              <p className="text-3xl font-bold">{totalCount}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Active</p>
-              <p className="text-3xl font-bold text-green-600">{activeStudents}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Inactive</p>
-              <p className="text-3xl font-bold text-yellow-600">{inactiveStudents}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Suspended</p>
-              <p className="text-3xl font-bold text-red-600">{suspendedStudents}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-4">
+        {statCards.map((card) => (
+          <Card key={card.label}>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">{card.label}</p>
+              <p className={`mt-2 text-4xl font-semibold ${card.valueClass}`}>{card.value}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Search and Filter Bar */}
-      <div className="flex flex-col md:flex-row gap-3 items-end">
-        <div className="flex-1 relative">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, roll number, or email..."
             value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search by name, roll number, class, phone, or email..."
             className="pl-10"
           />
         </div>
-        <Button variant="outline" size="icon">
-          <Filter className="size-4" />
+        <Button variant="outline" onClick={() => setSearchQuery('')}>
+          <Filter className="mr-2 size-4" />
+          Clear
         </Button>
-        <AddStudentDialog onAdd={handleAddStudent} />
+        <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => router.push('/admin/attendance/face-recognition')}>
+          <Camera className="mr-2 size-4" />
+          Recognize Student
+        </Button>
+        <Button className="bg-zinc-900 text-white hover:bg-zinc-800" onClick={() => router.push('/admin/students/new')}>
+          <Plus className="mr-2 size-4" />
+          Add Student
+        </Button>
       </div>
 
-      {/* Students Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Students List</CardTitle>
-          <CardDescription>
-            Showing {students.length} of {totalCount} students
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <StudentTable
-            students={students}
-            onView={(student) => {
-              setSelectedStudent(student)
-              setShowDetailModal(true)
-            }}
-            onDelete={handleDeleteStudent}
-          />
+        <CardContent className="pt-6">
+          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Students List</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Showing {filteredStudents.length} of {studentStats.total} students
+              </p>
+            </div>
+            <Button variant="outline" asChild>
+              <Link href="/admin/attendance">
+                <SquareChartGantt className="mr-2 size-4" />
+                Open Attendance Module
+              </Link>
+            </Button>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Roll Number</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Face Data Uploaded</TableHead>
+                <TableHead>Attendance</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredStudents.map((student) => (
+                <TableRow key={student.id}>
+                  <TableCell className="font-medium">{student.rollNumber}</TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{student.name}</p>
+                      <p className="text-xs text-muted-foreground">{student.email}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>{student.className}</TableCell>
+                  <TableCell>{student.contact}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className={faceClasses[student.faceData]}>{student.faceData}</Badge>
+                      {student.faceData !== 'Uploaded' && (
+                        <Button asChild variant="outline" size="sm" className="h-7 px-3 text-xs">
+                          <Link href={`/admin/students/${student.id}`}>
+                            Add Face
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Button asChild variant="link" className="h-auto p-0 font-medium">
+                      <Link href={`/admin/attendance?student=${student.rollNumber}`}>
+                        {student.attendance}%
+                      </Link>
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={statusClasses[student.status]}>{student.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" className="ml-auto">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/students/${student.id}`}>
+                            <Eye className="size-4" />
+                            View
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/students/${student.id}/edit`}>
+                            <Pencil className="size-4" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild variant="destructive">
+                          <Link href={`/admin/students/${student.id}/delete`}>
+                            <Trash2 className="size-4" />
+                            Delete
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
-
-      {/* Student Detail Modal */}
-      <StudentDetailModal
-        open={showDetailModal}
-        student={selectedStudent}
-        onOpenChange={setShowDetailModal}
-        onDelete={() => {
-          if (selectedStudent) {
-            handleDeleteStudent(selectedStudent.id)
-          }
-        }}
-        onEdit={() => {
-          // TODO: Implement edit modal
-        }}
-      />
     </div>
   )
 }
