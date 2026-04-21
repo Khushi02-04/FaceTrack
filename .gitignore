@@ -3,3 +3,8 @@
 __pycache__/
 app/alembic/versions/
 app/test.db
+.next/
+Frontend/app/.env
+Frontend/tsconfig.tsbuildinfo
+*.db
+*.db-journal
